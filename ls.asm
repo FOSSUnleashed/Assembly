@@ -15,20 +15,19 @@ section .data
 ; open returns -1 on fail
 ; getdents64 returns -1 on fail, 0 on done, >0 bytes for size of directory entity
 ; keep the fd (it'll probably be 3 TBH)
-; 
 
 section .text ; (4)
+; strln: find NUL, replace is LF 0x0A, copy into sbuffer as we go
 strln:
-	; rdx is length of string
-	; find NUL, replace is LF 0x0A
+	; rdx is both the index into sbuffer, or the length of the string data into sbuffer
+	; we are already 2 characters into sbuffer before we enter the function
 	mov rdx, 2
-	; buffer + r13 + 19 + rdx
 	loop_str:
-	; ch = character we are looking
-	mov r12, r13
-	add r12, 17
+	; bl = character we are looking at
+	mov r12, r13 ; r13 is the offset to the start of the current dirent struct
+	add r12, 17 ; 19 is the offset from the start of the struct to the d_name member
 	add r12, rdx
-	mov bl, [buffer + r12]
+	mov bl, [buffer + r12] ; buffer[r13 + 17 + rdx]
 
 	cmp bl, 0
 	je done_str
@@ -39,7 +38,7 @@ strln:
 	jmp loop_str
 
 	done_str:
-	mov bl, 0x0A
+	mov bl, 0x0A ; Linefeed
 	mov [sbuffer + rdx], bl
 	inc rdx
 
@@ -85,11 +84,11 @@ _start:
 			; type[1]
 			; name[nul]
 
-			; r9 = size
+			; r9 = size of the current struct (extracted from the d_size member)
 			mov r9w, [buffer + r13 + 16]
 			mov bl, [buffer + r13 + 18]
 			add bl, 0x30
-			mov [sbuffer], bl
+			mov [sbuffer], bl ; 4 == directory | 8 == regular file | : == symlink
 			mov bl, 0x20 ; space
 			mov [sbuffer + 1], bl ; space
 
